@@ -1,0 +1,2 @@
+{} chose to pass, and {} made the last turn.
+With the result of {} and the opposing result of {}, you have {}! Do you wish to continue?
