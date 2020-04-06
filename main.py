@@ -1,114 +1,11 @@
 import tkinter as tk
 import tkinter.messagebox as messagebox
 import mechanics
-
-
-class PlayerInterface:
-    def __init__(self, root, player):
-        self.player = player
-        self.state = tk.StringVar()
-        self.state.set(player.getLabel())
-        self.label = tk.Label(root, width=60, textvariable=self.state)
-
-    def place(self, startingRow, startingColumn):
-        self.label.grid(row=startingRow, column=startingColumn,
-                        columnspan=3)
-
-    def update(self):
-        self.state.set(self.player.getLabel())
-
-
-class RowsInterface:
-    def __init__(self, root, player, captions):
-        self.player = player
-        self.rows = list()
-        self.rowSums = list()
-        for i in range(mechanics.rows):
-            self.rows.append(tk.StringVar())
-            self.rows[i].set("-")
-            self.rowSums.append(tk.StringVar())
-            self.rowSums[i].set("0")
-
-        self.rowCaptionLabels = list()
-        self.rowLabels = list()
-        self.rowSumLabels = list()
-        for i in range(mechanics.rows):
-            self.rowCaptionLabels.append(
-                tk.Label(root, anchor=tk.E, width=20, relief=tk.RIDGE,
-                         text=captions[i])
-            )
-            self.rowSumLabels.append(
-                tk.Label(root, width=3, relief=tk.RIDGE,
-                         textvariable=self.rowSums[i])
-            )
-            self.rowLabels.append(
-                tk.Label(root, width=35, anchor=tk.W, relief=tk.RIDGE,
-                         textvariable=self.rows[i])
-            )
-
-    def place(self, startingRow, startingColumn, inverse=False):
-        for i in range(mechanics.rows):
-            rowIndex = startingRow + i if not inverse else startingRow + 2 - i
-            self.rowCaptionLabels[i].grid(row=rowIndex, column=startingColumn)
-            self.rowSumLabels[i].grid(row=rowIndex, column=startingColumn + 1)
-            self.rowLabels[i].grid(row=rowIndex, column=startingColumn + 2)
-
-    def update(self, rowType):
-        row = self.player.rows[rowType]
-        self.rows[rowType].set(row.getLabel())
-        self.rowSums[rowType].set(str(row.sum))
-
-
-class ButtonsInterface:
-    def __init__(self, root, player, playerInterface, rowsInterface):
-        self.player = player
-        self.playerInterface = playerInterface
-        self.rowsInterface = rowsInterface
-
-        self.handFrame = tk.Frame(root)
-        self.handButtons = list()
-        self.update()
-
-        method = self.passMethod
-        passButton = tk.Button(self.handFrame, text="Pass", command=method)
-        passButton.pack(side=tk.BOTTOM)
-
-    def place(self, startingRow, startingColumn):
-        self.handFrame.grid(row=startingRow, column=startingColumn,
-                            columnspan=3)
-
-    def update(self):
-        for i in range(mechanics.deckSize):
-            unit = self.player.units[i]
-            if (unit.condition == mechanics.ConditionType.inHand and
-                    i >= len(self.handButtons)):
-                self.createUnitButton(i)
-
-    def createUnitButton(self, i):
-        unit = self.player.units[i]
-        label = unit.getButtonLabel()
-        method = self.createUnitMethod(i, unit)
-        button = tk.Button(self.handFrame, text=label, command=method)
-        self.handButtons.append(button)
-        button.pack(side=tk.TOP)
-
-    def createUnitMethod(self, i, unit):
-        def unitMethod():
-            self.handButtons[i].destroy()
-            unit.play()
-            self.playerInterface.update()
-            self.rowsInterface.update(unit.rowType)
-            self.update()
-            gameManager.switchTurns()
-        return unitMethod
-
-    @staticmethod
-    def passMethod():
-        gameManager.passRound()
+import random as rand
 
 
 # everything with index 1 refers to player, with index 2 refers to opponent
-class GameManager:
+class GameWidgets:
     captions1 = [
         "Your melee row",
         "Your ranged row",
@@ -120,122 +17,189 @@ class GameManager:
         "Opponent's siege row"
     ]
 
-    def __init__(self, gameName, gameIcon):
+    def __init__(self):
         self.root = tk.Tk()
-        self.root.title(gameName)
-        self.root.iconphoto(True, tk.PhotoImage(file=gameIcon))
+        self.root.title("Gwent")
+        self.root.iconphoto(True, tk.PhotoImage(file="img/geralt_32.png"))
 
-        self.playerInterface1 = PlayerInterface(self.root, player1)
-        self.playerInterface2 = PlayerInterface(self.root, player2)
-        self.playerInterface2.place(1, 1)
-        self.playerInterface1.place(8, 1)
+        self.state1 = tk.StringVar()
+        self.state1.set(player1.getLabel())
+        self.playerLabel1 = tk.Label(self.root, width=60,
+                                     textvariable=self.state1)
 
-        self.rowsInterface1 = RowsInterface(self.root, player1, self.captions1)
-        self.rowsInterface2 = RowsInterface(self.root, player2, self.captions2)
-        self.rowsInterface2.place(2, 1, inverse=True)
-        self.rowsInterface1.place(5, 1)
+        self.state2 = tk.StringVar()
+        self.state2.set(player2.getLabel())
+        self.playerLabel2 = tk.Label(self.root, width=60,
+                                     textvariable=self.state2)
 
-        self.unitsInterface = ButtonsInterface(self.root, player1,
-                                               self.playerInterface1,
-                                               self.rowsInterface1)
-        self.unitsInterface.place(9, 1)
+        self.board = [[] for i in range(6)]
+        for x in range(3):
+            self.board[x].append(
+                tk.Label(self.root, anchor=tk.E, width=20, relief=tk.RIDGE,
+                         text=self.captions2[2 - x])
+            )
+        for x in range(3):
+            self.board[3 + x].append(
+                tk.Label(self.root, anchor=tk.E, width=20, relief=tk.RIDGE,
+                         text=self.captions1[x])
+            )
+
+        self.rows1 = list()
+        self.rowSums1 = list()
+        for i in range(3):
+            self.rows1.append(tk.StringVar())
+            self.rows1[i].set("-")
+            self.rowSums1.append(tk.StringVar())
+            self.rowSums1[i].set("0")
+        for i in range(3):
+            self.board[3 + i].append(
+                tk.Label(self.root, width=3, relief=tk.RIDGE,
+                         textvariable=self.rowSums1[i])
+            )
+            self.board[3 + i].append(
+                tk.Label(self.root, width=35, anchor=tk.W, relief=tk.RIDGE,
+                         textvariable=self.rows1[i])
+            )
+
+        self.rows2 = list()
+        self.rowSums2 = list()
+        for i in range(3):
+            self.rows2.append(tk.StringVar())
+            self.rows2[i].set("-")
+            self.rowSums2.append(tk.StringVar())
+            self.rowSums2[i].set("0")
+        for i in range(3):
+            self.board[i].append(
+                tk.Label(self.root, width=3, relief=tk.RIDGE,
+                         textvariable=self.rowSums2[2 - i])
+            )
+            self.board[i].append(
+                tk.Label(self.root, width=35, anchor=tk.W, relief=tk.RIDGE,
+                         textvariable=self.rows2[2 - i])
+            )
+
+        self.playerLabel2.grid(row=1, column=1, columnspan=3)
+        for i in range(6):
+            self.board[i][0].grid(row=i + 2, column=1)
+            self.board[i][1].grid(row=i + 2, column=2)
+            self.board[i][2].grid(row=i + 2, column=3)
+        self.playerLabel1.grid(row=8, column=1, columnspan=3)
+
+        self.handFrame = tk.Frame(self.root)
+        self.handFrame.grid(row=9, column=1, columnspan=3)
+        self.handButtons = list()
+        self.generateUnitButtons()
+
         self.opponentPassed = False
+        method = self.passRound
+        passButton = tk.Button(self.handFrame, text="Pass", command=method)
+        passButton.pack(side=tk.BOTTOM)
 
-    def switchTurns(self):
-        if self.opponentPassed:
-            self.endRound()
+    def generateUnitButtons(self):
+        for i in range(mechanics.handSize):
+            unit = player1.units[i]
+            row = player1.rows[unit.rowType]
+            label = unit.getButtonLabel()
+            method = self.createMethod(i, unit, row)
+            button = tk.Button(self.handFrame, text=label, command=method)
+            self.handButtons.append(button)
+            button.pack(side=tk.TOP)
+
+    def createMethod(self, i, unit, row):
+        def buttonMethod():
+            self.handButtons[i].destroy()
+            unit.play(row)
+            self.updateState()
+            self.updateRow(row)
+            if self.opponentPassed:
+                self.endRound()
+            else:
+                self.opponentTurn()
+        return buttonMethod
+
+    def updateState(self, opponent=False):
+        if opponent:
+            self.state2.set(player2.getLabel())
         else:
-            self.opponentTurn()
+            self.state1.set(player1.getLabel())
 
-    def opponentTurn(self, lastTurn=False):
-        unit = player2.chooseUnit(player1, lastTurn)
-        if unit != 0:
-            unit.play()
-            self.playerInterface2.update()
-            self.rowsInterface2.update(unit.rowType)
-        elif not lastTurn:
+    def updateRow(self, row, opponent=False):
+        if opponent:
+            self.rows2[row.rowType].set(row.getLabel())
+            self.rowSums2[row.rowType].set(str(row.sum))
+        else:
+            self.rows1[row.rowType].set(row.getLabel())
+            self.rowSums1[row.rowType].set(str(row.sum))
+
+    def opponentTurn(self):
+        passCode = mechanics.handSize * 3 // 4
+        passChance = rand.randint(0, passCode)
+        if passChance == passCode:
             self.opponentPassed = True
             text = "{} passed, the next turn will be your last!"
             text = text.format(player2.name)
             messagebox.showinfo(title="Opponent passed", message=text)
+        else:
+            unit = player2.chooseUnit()
+            if unit != 0:
+                row = player2.rows[unit.rowType]
+                unit.play(row)
+                self.updateState(opponent=True)
+                self.updateRow(row, opponent=True)
 
     def passRound(self):
         if not self.opponentPassed:
-            self.opponentTurn(lastTurn=True)
+            self.opponentTurn()
         self.endRound()
 
     def endRound(self):
-        sum1 = player1.getSum()
-        sum2 = player2.getSum()
+        sum1 = 0
+        sum2 = 0
+        for i in range(3):
+            sum1 += player1.rows[i].sum
+            sum2 += player2.rows[i].sum
 
         textSource = open("txt/message.txt", "r")
-        lines = list()
-        for i in range(mechanics.messageLength):
-            line = textSource.readline()
-            lines.append(line)
+        line1 = textSource.readline()
+        line2 = textSource.readline()
         textSource.close()
 
         if self.opponentPassed:
-            lines[0] = lines[0].format(player2.name, player1.name)
+            line1 = line1.format(player2.name, player1.name)
         else:
-            lines[0] = lines[0].format(player1.name, player2.name)
+            line1 = line1.format(player1.name, player2.name)
         self.opponentPassed = False
 
-        gameEnded = False
         if sum1 > sum2:
             action = "won"
             player1.roundsWon += 1
-            if player1.roundsWon == mechanics.roundWinCondition:
-                gameEnded = True
         elif sum1 == sum2:
             action = "tied"
         else:
             action = "lost"
             player2.roundsWon += 1
-            if player2.roundsWon == mechanics.roundWinCondition:
-                gameEnded = True
-        lines[1] = lines[1].format(sum1, sum2, action)
+        line2 = line2.format(sum1, sum2, action)
 
-        if gameEnded:
-            lines[2] = lines[2].format(action)
-            message = lines[0] + lines[1] + lines[2] + lines[3]
-            if messagebox.askyesno(title="Game ended", message=message):
-                self.newGame()
-            else:
-                quit()
+        if messagebox.askyesno(title="Round ended", message=line1 + line2):
+            self.refreshBoard()
         else:
-            message = lines[0] + lines[1] + lines[3]
-            if messagebox.askyesno(title="Round ended", message=message):
-                self.newRound()
-            else:
-                quit()
+            quit()
 
-    def clearBoard(self):
-        self.playerInterface1.update()
-        self.playerInterface2.update()
-        player1.clearRows()
-        player2.clearRows()
-        for i in range(mechanics.rows):
-            self.rowsInterface1.update(i)
-            self.rowsInterface2.update(i)
-
-    def newRound(self):
-        player1.drawCard()
-        player2.drawCard()
-        self.clearBoard()
-        self.unitsInterface.update()
-
-    def newGame(self):
+    def refreshBoard(self):
         player1.refresh()
         player2.refresh()
-        self.clearBoard()
-        for button in self.unitsInterface.handButtons:
+        self.updateState()
+        self.updateState(opponent=True)
+        for i in range(mechanics.rows):
+            self.updateRow(player1.rows[i])
+            self.updateRow(player2.rows[i], opponent=True)
+        for button in self.handButtons:
             button.destroy()
-        self.unitsInterface.handButtons = list()
-        self.unitsInterface.update()
+        self.handButtons = list()
+        self.generateUnitButtons()
 
 
 player1 = mechanics.Player("You")
-player2 = mechanics.AI("Geralt of Rivia", 1)
-gameManager = GameManager("Gwent", "img/geralt_32.png")
-gameManager.root.mainloop()
+player2 = mechanics.Player("Geralt of Rivia")
+gameWidgets = GameWidgets()
+gameWidgets.root.mainloop()
