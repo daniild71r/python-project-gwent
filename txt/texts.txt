@@ -1,0 +1,34 @@
+Gwent
+You
+Geralt of Rivia
+Welcome to Gwent! Please select difficulty.
+Think twice: you won't be able to change it during this session.
+Easy
+Medium
+Hard
+Basically impossible
+Now please select a fraction which your deck will belong to.
+Once again, be mindful that the choice is made once and for all!
+Northern Kingdoms
+Nilfgaard
+melee
+ranged
+siege
+Your melee row
+Your ranged row
+Your siege row
+Opponent's melee row
+Opponent's ranged row
+Opponent's siege row
+Pass
+Opponent passed
+{} passed, the next turn will be your last!
+Round ended
+Game ended
+{} chose to pass, and {} made the last turn.
+With the result of {} and the opposing result of {}, you have {}!
+The game has ended as well, and you have {}!
+Do you wish to continue?
+won
+tied
+lost

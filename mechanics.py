@@ -1,7 +1,6 @@
+import copy
 import random as rand
 
-deckSize = 20
-handSize = 10
 rows = 3
 roundWinCondition = 2
 messageLength = 4
@@ -20,12 +19,20 @@ class ConditionType:
     dead = 3
 
 
+class Fraction:
+    north = 0
+    nilfgaard = 1
+
+
 class Unit:
-    def __init__(self, player):
-        self.player = player
+    def __init__(self):
+        self.player = None
         self.rowType = Unit.generateRow()
         self.strength = Unit.generateStrength()
         self.condition = ConditionType.inDeck
+
+    def setPlayer(self, player):
+        self.player = player
 
     @staticmethod
     def generateRow():
@@ -45,18 +52,15 @@ class Unit:
         row.units.append(self)
         row.updateSum()
 
-    def getLabel(self):
-        return str(self.strength)
-
-    def getButtonLabel(self):
-        return Row.rowNames[self.rowType] + " " + str(self.strength)
+    def acceptLabeler(self, labeler):
+        return labeler.getUnitLabel(self)
 
     unitRate = 5
 
 
 class Commander(Unit):
-    def __init__(self, player):
-        self.player = player
+    def __init__(self):
+        self.player = None
         self.rowType = Commander.generateRow()
         self.strength = Commander.generateStrength()
         self.condition = ConditionType.inDeck
@@ -78,17 +82,13 @@ class Commander(Unit):
         row.activeCommanders += 1
         row.updateSum()
 
-    def getLabel(self):
-        return "(" + str(self.strength) + ")"
-
-    def getButtonLabel(self):
-        return ("commander " + Row.rowNames[self.rowType] + " " +
-                str(self.strength))
+    def acceptLabeler(self, labeler):
+        return labeler.getCommanderLabel(self)
 
 
 class Spy(Unit):
-    def __init__(self, player):
-        self.player = player
+    def __init__(self):
+        self.player = None
         self.rowType = Spy.generateRow()
         self.strength = Spy.generateStrength()
         self.condition = ConditionType.inDeck
@@ -109,17 +109,11 @@ class Spy(Unit):
             self.player.drawCard()
         row.updateSum()
 
-    def getLabel(self):
-        return "[" + str(self.strength) + "]"
-
-    def getButtonLabel(self):
-        return ("spy " + Row.rowNames[self.rowType] + " " +
-                str(self.strength))
+    def acceptLabeler(self, labeler):
+        return labeler.getSpyLabel(self)
 
 
 class Row:
-    rowNames = ["melee", "ranged", "siege"]
-
     def __init__(self, rowType):
         self.rowType = rowType
         self.units = list()
@@ -131,40 +125,61 @@ class Row:
         for unit in self.units:
             self.sum += unit.strength
 
-    def getLabel(self):
-        if len(self.units) > 0:
-            return " ".join(unit.getLabel() for unit in self.units)
-        else:
-            return "-"
+    def acceptLabeler(self, labeler):
+        return labeler.getRowLabel(self)
+
+
+class DeckGenerator:
+    def __init__(self):
+        self.preset = list()
+        for i in range(DeckGenerator.basicUnits):
+            self.preset.append(Unit())
+
+    def getDeck(self, player):
+        newDeck = list()
+        for unit in self.preset:
+            newDeck.append(copy.copy(unit))
+
+        if player.fraction == Fraction.north:
+            for i in range(DeckGenerator.firstUnique):
+                newDeck.append(Commander())
+                newDeck[-1].strength += 2
+            for i in range(DeckGenerator.secondUnique):
+                newDeck.append(Spy())
+        elif player.fraction == Fraction.nilfgaard:
+            for i in range(DeckGenerator.firstUnique):
+                newDeck.append(Spy())
+                newDeck[-1].strength += 2
+            for i in range(DeckGenerator.secondUnique):
+                newDeck.append(Commander())
+
+        for i in range(Player.deckSize):
+            newDeck[i].setPlayer(player)
+        rand.shuffle(newDeck)
+        for i in range(Player.handSize):
+            newDeck[i].condition = ConditionType.inHand
+        return newDeck
+
+    basicUnits = 13
+    firstUnique = 5
+    secondUnique = 2
 
 
 class Player:
-    def __init__(self, name):
+    def __init__(self, name, fraction=Fraction.north):
         self.name = name
+        self.fraction = fraction
         self.roundsWon = 0
         self.units = list()
-        self.deckTop = handSize
-        self.generateDeck()
+        self.deckTop = 0
         self.rows = [Row(i) for i in range(rows)]
 
-    def generateDeck(self):
-        for i in range(deckSize):
-            unitTry = rand.randint(0, Unit.unitRate)
-            if unitTry == Unit.unitRate - 1:
-                self.units.append(Commander(self))
-            elif unitTry == Unit.unitRate:
-                self.units.append(Spy(self))
-            else:
-                self.units.append(Unit(self))
-        for i in range(handSize):
-            self.units[i].condition = ConditionType.inHand
-        self.deckTop = handSize
+    def generateDeck(self, deckGenerator):
+        self.innerGenerateDeck(deckGenerator)
 
-    def getLabel(self):
-        count = self.countUnits()
-        return (self.name + " won " + str(self.roundsWon) + " rounds. " +
-                str(count[0]) + " units in hand and " + str(count[1]) +
-                " more in deck.")
+    def innerGenerateDeck(self, deckGenerator):
+        self.units = deckGenerator.getDeck(self)
+        self.deckTop = Player.handSize
 
     def countUnits(self):
         inHand = 0
@@ -183,7 +198,7 @@ class Player:
         return result
 
     def drawCard(self):
-        if self.deckTop < deckSize:
+        if self.deckTop < Player.deckSize:
             self.units[self.deckTop].condition = ConditionType.inHand
             self.deckTop += 1
 
@@ -194,42 +209,32 @@ class Player:
                     unit.condition = ConditionType.dead
             self.rows[i] = Row(i)
 
-    def refresh(self):
+    def refresh(self, deckGenerator):
         self.clearRows()
         self.units = list()
-        self.generateDeck()
+        self.generateDeck(deckGenerator)
         self.roundsWon = 0
+
+    def acceptLabeler(self, labeler):
+        return labeler.getPlayerLabel(self)
+
+    deckSize = 20
+    handSize = 10
 
 
 class AI(Player):
     def __init__(self, name, difficulty):
-        self.name = name
+        super().__init__(name)
         self.difficulty = difficulty
-        self.roundsWon = 0
-        self.deckTop = handSize
-        self.units = list()
-        self.generateDeck()
-        self.rows = [Row(i) for i in range(rows)]
 
-    def generateDeck(self):
-        for i in range(deckSize):
-            unitTry = rand.randint(0, Unit.unitRate)
-            if unitTry == Unit.unitRate - 1:
-                self.units.append(Commander(self))
-            elif unitTry == Unit.unitRate:
-                self.units.append(Spy(self))
-            else:
-                self.units.append(Unit(self))
-        for i in range(handSize):
-            self.units[i].condition = ConditionType.inHand
-        self.deckTop = handSize
+    def generateDeck(self, deckGenerator):
+        self.innerGenerateDeck(deckGenerator)
         for unit in self.units:
             unit.strength += self.difficulty
 
     def getUnitOptions(self):
         options = list()
-        for i in range(deckSize):
-            unit = self.units[i]
+        for unit in self.units:
             if unit.condition == ConditionType.inHand:
                 options.append(unit)
         return options
